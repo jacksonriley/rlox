@@ -189,6 +189,7 @@ impl Scanner<'_> {
                     }
                 }
                 ' ' | '\r' | '\t' | '\n' => return self.produce_next_token(),
+                '"' => return Some(self.string(idx)),
                 c => {
                     return Some(Err(self.calculate_syntax_err(
                         idx,
@@ -197,6 +198,31 @@ impl Scanner<'_> {
                 }
             },
         }))
+    }
+
+    fn string(&mut self, idx: usize) -> Result<Token, SyntaxError> {
+        // The leading '"' has already been consumed, so read until the next one.
+        let mut result = String::new();
+        loop {
+            match self.source.next() {
+                Some((_, c)) => {
+                    if c == '"' {
+                        // We're done
+                        let len = result.len();
+                        return Ok(Token {
+                            kind: TokenType::Str(result),
+                            span: Span {
+                                start: idx,
+                                end: idx + 1 + len,
+                            },
+                        });
+                    } else {
+                        result.push(c);
+                    }
+                }
+                None => return Err(self.calculate_syntax_err(idx, r#"Unmatched '"'"#.into())),
+            }
+        }
     }
 }
 
