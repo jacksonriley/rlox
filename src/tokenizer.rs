@@ -190,6 +190,7 @@ impl Scanner<'_> {
                 }
                 ' ' | '\r' | '\t' | '\n' => return self.produce_next_token(),
                 '"' => return Some(self.string(idx)),
+                c if c.is_digit(10) => return Some(self.number(idx, c)),
                 c => {
                     return Some(Err(self.calculate_syntax_err(
                         idx,
@@ -221,6 +222,41 @@ impl Scanner<'_> {
                     }
                 }
                 None => return Err(self.calculate_syntax_err(idx, r#"Unmatched '"'"#.into())),
+            }
+        }
+    }
+
+    fn number(&mut self, idx: usize, initial: char) -> Result<Token, SyntaxError> {
+        let mut result = initial.to_string();
+        let mut passed_decimal = false;
+        loop {
+            match self.source.peek().copied() {
+                Some((_, c)) => {
+                    if c.is_digit(10) {
+                        result.push(self.source.next().unwrap().1);
+                    } else if c == '.' && !passed_decimal {
+                        result.push(self.source.next().unwrap().1);
+                        passed_decimal = true;
+                    } else {
+                        // We're done
+                        return Ok(Token {
+                            kind: TokenType::Number(result.parse().unwrap()),
+                            span: Span {
+                                start: idx,
+                                end: idx - 1 + result.len(),
+                            },
+                        });
+                    }
+                }
+                None => {
+                    return Ok(Token {
+                        kind: TokenType::Number(result.parse().unwrap()),
+                        span: Span {
+                            start: idx,
+                            end: idx - 1 + result.len(),
+                        },
+                    })
+                }
             }
         }
     }
