@@ -191,6 +191,7 @@ impl Scanner<'_> {
                 ' ' | '\r' | '\t' | '\n' => return self.produce_next_token(),
                 '"' => return Some(self.string(idx)),
                 c if c.is_digit(10) => return Some(self.number(idx, c)),
+                c if c.is_ascii_alphabetic() || c == '_' => return Some(self.identifier(idx, c)),
                 c => {
                     return Some(Err(self.calculate_syntax_err(
                         idx,
@@ -199,6 +200,52 @@ impl Scanner<'_> {
                 }
             },
         }))
+    }
+
+    fn identifier(&mut self, idx: usize, initial: char) -> Result<Token, SyntaxError> {
+        let mut result = initial.to_string();
+        loop {
+            match self.source.next() {
+                Some((_, c)) => {
+                    if c.is_ascii_alphanumeric() || c == '_' {
+                        result.push(c);
+                    } else {
+                        break;
+                    }
+                }
+                None => break,
+            }
+        }
+
+        let len = result.len();
+
+        use TokenType::*;
+        let tt = match &result[..] {
+            "and" => And,
+            "class" => Class,
+            "else" => Else,
+            "false" => False,
+            "for" => For,
+            "fun" => Fun,
+            "if" => If,
+            "nil" => Nil,
+            "or" => Or,
+            "print" => Print,
+            "return" => Return,
+            "super" => Super,
+            "this" => This,
+            "true" => True,
+            "var" => Var,
+            "while" => While,
+            _ => Identifier(result),
+        };
+        return Ok(Token {
+            kind: tt,
+            span: Span {
+                start: idx,
+                end: idx - 1 + len,
+            },
+        });
     }
 
     fn string(&mut self, idx: usize) -> Result<Token, SyntaxError> {
