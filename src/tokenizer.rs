@@ -70,15 +70,12 @@ pub(crate) struct Scanner<'a> {
     raw_source: &'a str,
     /// The underlying source characters
     source: Peekable<Enumerate<Chars<'a>>>,
-    /// Current token
-    current: String,
 }
 impl Scanner<'_> {
-    pub fn new<'a>(source: &'a str) -> Scanner<'a> {
+    pub fn new(source: &'_ str) -> Scanner<'_> {
         Scanner {
             raw_source: source,
             source: source.chars().enumerate().peekable(),
-            current: Default::default(),
         }
     }
 
@@ -126,94 +123,88 @@ impl Scanner<'_> {
 
     fn produce_next_token(&mut self) -> Option<Result<Token, SyntaxError>> {
         use TokenType::*;
-        Some(Ok(match self.source.next()? {
-            (idx, c) => match c {
-                '(' => Self::single(LeftParen, idx),
-                ')' => Self::single(RightParen, idx),
-                '{' => Self::single(LeftBrace, idx),
-                '}' => Self::single(RightBrace, idx),
-                ',' => Self::single(Comma, idx),
-                '.' => Self::single(Dot, idx),
-                '-' => Self::single(Minus, idx),
-                '+' => Self::single(Plus, idx),
-                ';' => Self::single(Semicolon, idx),
-                '*' => Self::single(Star, idx),
-                '!' => {
-                    match self.source.peek() {
-                        Some((_, '=')) => {
-                            // Consume
-                            self.source.next().unwrap();
-                            Self::double(BangEqual, idx)
-                        }
-                        _ => Self::single(Bang, idx),
+        let (idx, c) = self.source.next()?;
+        Some(Ok(match c {
+            '(' => Self::single(LeftParen, idx),
+            ')' => Self::single(RightParen, idx),
+            '{' => Self::single(LeftBrace, idx),
+            '}' => Self::single(RightBrace, idx),
+            ',' => Self::single(Comma, idx),
+            '.' => Self::single(Dot, idx),
+            '-' => Self::single(Minus, idx),
+            '+' => Self::single(Plus, idx),
+            ';' => Self::single(Semicolon, idx),
+            '*' => Self::single(Star, idx),
+            '!' => {
+                match self.source.peek() {
+                    Some((_, '=')) => {
+                        // Consume
+                        self.source.next().unwrap();
+                        Self::double(BangEqual, idx)
                     }
+                    _ => Self::single(Bang, idx),
                 }
-                '=' => {
-                    match self.source.peek() {
-                        Some((_, '=')) => {
-                            // Consume
-                            self.source.next().unwrap();
-                            Self::double(EqualEqual, idx)
-                        }
-                        _ => Self::single(Equal, idx),
+            }
+            '=' => {
+                match self.source.peek() {
+                    Some((_, '=')) => {
+                        // Consume
+                        self.source.next().unwrap();
+                        Self::double(EqualEqual, idx)
                     }
+                    _ => Self::single(Equal, idx),
                 }
-                '<' => {
-                    match self.source.peek() {
-                        Some((_, '=')) => {
-                            // Consume
-                            self.source.next().unwrap();
-                            Self::double(LessEqual, idx)
-                        }
-                        _ => Self::single(Less, idx),
+            }
+            '<' => {
+                match self.source.peek() {
+                    Some((_, '=')) => {
+                        // Consume
+                        self.source.next().unwrap();
+                        Self::double(LessEqual, idx)
                     }
+                    _ => Self::single(Less, idx),
                 }
-                '>' => {
-                    match self.source.peek() {
-                        Some((_, '=')) => {
-                            // Consume
-                            self.source.next().unwrap();
-                            Self::double(GreaterEqual, idx)
-                        }
-                        _ => Self::single(Greater, idx),
+            }
+            '>' => {
+                match self.source.peek() {
+                    Some((_, '=')) => {
+                        // Consume
+                        self.source.next().unwrap();
+                        Self::double(GreaterEqual, idx)
                     }
+                    _ => Self::single(Greater, idx),
                 }
-                '/' => {
-                    match self.source.peek() {
-                        Some((_, '/')) => {
-                            // This is a comment! Consume until the end of the line.
-                            while !matches!(self.source.next(), Some((_, '\n')) | None) {}
-                            return self.produce_next_token();
-                        }
-                        _ => Self::single(Slash, idx),
+            }
+            '/' => {
+                match self.source.peek() {
+                    Some((_, '/')) => {
+                        // This is a comment! Consume until the end of the line.
+                        while !matches!(self.source.next(), Some((_, '\n')) | None) {}
+                        return self.produce_next_token();
                     }
+                    _ => Self::single(Slash, idx),
                 }
-                ' ' | '\r' | '\t' | '\n' => return self.produce_next_token(),
-                '"' => return Some(self.string(idx)),
-                c if c.is_digit(10) => return Some(self.number(idx, c)),
-                c if c.is_ascii_alphabetic() || c == '_' => return Some(self.identifier(idx, c)),
-                c => {
-                    return Some(Err(self.calculate_syntax_err(
-                        idx,
-                        format!("Invalid syntax: got unexpected character '{c}'"),
-                    )))
-                }
-            },
+            }
+            ' ' | '\r' | '\t' | '\n' => return self.produce_next_token(),
+            '"' => return Some(self.string(idx)),
+            c if c.is_ascii_digit() => return Some(self.number(idx, c)),
+            c if c.is_ascii_alphabetic() || c == '_' => return Some(self.identifier(idx, c)),
+            c => {
+                return Some(Err(self.calculate_syntax_err(
+                    idx,
+                    format!("Invalid syntax: got unexpected character '{c}'"),
+                )))
+            }
         }))
     }
 
     fn identifier(&mut self, idx: usize, initial: char) -> Result<Token, SyntaxError> {
         let mut result = initial.to_string();
-        loop {
-            match self.source.next() {
-                Some((_, c)) => {
-                    if c.is_ascii_alphanumeric() || c == '_' {
-                        result.push(c);
-                    } else {
-                        break;
-                    }
-                }
-                None => break,
+        for (_, c) in self.source.by_ref() {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                result.push(c);
+            } else {
+                break;
             }
         }
 
@@ -239,13 +230,13 @@ impl Scanner<'_> {
             "while" => While,
             _ => Identifier(result),
         };
-        return Ok(Token {
+        Ok(Token {
             kind: tt,
             span: Span {
                 start: idx,
                 end: idx - 1 + len,
             },
-        });
+        })
     }
 
     fn string(&mut self, idx: usize) -> Result<Token, SyntaxError> {
@@ -279,7 +270,7 @@ impl Scanner<'_> {
         loop {
             match self.source.peek().copied() {
                 Some((_, c)) => {
-                    if c.is_digit(10) {
+                    if c.is_ascii_digit() {
                         result.push(self.source.next().unwrap().1);
                     } else if c == '.' && !passed_decimal {
                         result.push(self.source.next().unwrap().1);
