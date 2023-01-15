@@ -1,6 +1,7 @@
 use std::io::{self, BufRead, Write};
 use std::path::Path;
 use thiserror::Error;
+mod ast;
 mod tokenizer;
 
 #[derive(Error, Debug)]
@@ -34,8 +35,14 @@ pub fn run_prompt() -> Result<(), LoxError> {
 
 fn run(s: &str) -> Result<(), LoxError> {
     let scanner = tokenizer::Scanner::new(s);
-    for token in scanner {
-        println!("{:?}", token);
+    let (tokens, errors): (Vec<_>, Vec<_>) = scanner.partition(Result::is_ok);
+    if !errors.is_empty() {
+        return Err(LoxError::SyntaxErrors(
+            errors.into_iter().map(Result::unwrap_err).collect(),
+        ));
     }
+    let tokens = tokens.into_iter().map(Result::unwrap);
+    let parser = ast::Parser::new(tokens);
+    println!("{:#?}", parser.parse());
     Ok(())
 }

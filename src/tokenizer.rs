@@ -2,8 +2,8 @@ use std::iter::{Enumerate, Peekable};
 use std::str::Chars;
 
 #[derive(Debug)]
-enum TokenType {
-    // Single-character tokens.
+pub(crate) enum TokenType {
+    // Tokens
     LeftParen,
     RightParen,
     LeftBrace,
@@ -52,8 +52,8 @@ enum TokenType {
 
 #[derive(Debug)]
 pub(crate) struct Token {
-    kind: TokenType,
-    span: Span,
+    pub(crate) kind: TokenType,
+    pub(crate) span: Span,
 }
 
 #[derive(Debug)]
