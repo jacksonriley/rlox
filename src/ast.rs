@@ -9,8 +9,8 @@ pub(crate) enum Expr {
     Grouping(Box<Expr>),
 }
 
-#[derive(Debug)]
-pub(crate) enum Literal {
+#[derive(Debug, PartialEq)]
+pub enum Literal {
     Number(f64),
     Str(String),
     False,
@@ -100,7 +100,7 @@ where
 }
 
 #[derive(Debug)]
-pub(crate) struct ParseError {
+pub struct ParseError {
     // TODO when we can synchronize
 }
 
@@ -129,6 +129,8 @@ where
         } else {
             Err((expr, self.errors))
         }
+
+        // TODO: Check that there are no more tokens left (will probably naturally come up when we parse statements as well.)
     }
 
     // expression     → equality ;
