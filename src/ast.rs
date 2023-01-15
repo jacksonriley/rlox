@@ -153,7 +153,7 @@ where
                     // Consume
                     let _ = self.toks.next().unwrap();
                     let right = self.comparison();
-                    expr = Expr::Binary(Box::new(expr), BinaryOp::BangEqual, Box::new(right));
+                    expr = Expr::Binary(Box::new(expr), op, Box::new(right));
                 }
                 _ => break,
             }
