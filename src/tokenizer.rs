@@ -1,7 +1,7 @@
 use std::iter::{Enumerate, Peekable};
 use std::str::Chars;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub(crate) enum TokenType {
     // Tokens
     LeftParen,
@@ -200,9 +200,10 @@ impl Scanner<'_> {
 
     fn identifier(&mut self, idx: usize, initial: char) -> Result<Token, SyntaxError> {
         let mut result = initial.to_string();
-        for (_, c) in self.source.by_ref() {
-            if c.is_ascii_alphanumeric() || c == '_' {
-                result.push(c);
+        while let Some((_, c)) = self.source.peek() {
+            if c.is_ascii_alphanumeric() || *c == '_' {
+                result.push(*c);
+                self.source.next();
             } else {
                 break;
             }

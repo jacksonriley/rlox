@@ -2,6 +2,12 @@ use crate::tokenizer::{Token, TokenType};
 use std::iter::Peekable;
 
 #[derive(Debug)]
+pub(crate) enum Statement {
+    Print(Expr),
+    Expr(Expr),
+}
+
+#[derive(Debug)]
 pub(crate) enum Expr {
     Literal(Literal),
     Unary(UnaryOp, Box<Expr>),
@@ -101,7 +107,8 @@ where
 
 #[derive(Debug)]
 pub struct ParseError {
-    // TODO when we can synchronize
+    token: Option<Token>,
+    message: String,
 }
 
 impl<T> Parser<T>
@@ -120,17 +127,43 @@ impl<T> Parser<T>
 where
     T: Iterator<Item = Token>,
 {
-    pub(crate) fn parse(mut self) -> Result<Expr, (Expr, Vec<ParseError>)> {
-        // Parse everything as an expression
-        let expr = self.expression();
-
-        if self.errors.is_empty() {
-            Ok(expr)
-        } else {
-            Err((expr, self.errors))
+    pub(crate) fn parse(mut self) -> Result<Vec<Statement>, (Vec<Statement>, Vec<ParseError>)> {
+        // Parse a list of statements
+        let mut res = vec![];
+        let mut errors = vec![];
+        while matches!(self.toks.peek(), Some(_)) {
+            match self.statement() {
+                Ok(stmt) => res.push(stmt),
+                Err(err) => errors.push(err),
+            }
         }
 
-        // TODO: Check that there are no more tokens left (will probably naturally come up when we parse statements as well.)
+        if errors.is_empty() {
+            Ok(res)
+        } else {
+            Err((res, errors))
+        }
+    }
+
+    fn statement(&mut self) -> Result<Statement, ParseError> {
+        let res = match self.toks.peek() {
+            Some(tok) => match &tok.kind {
+                TokenType::Print => {
+                    // Consume the "print"
+                    self.consume(TokenType::Print)?;
+                    Statement::Print(self.expression())
+                }
+                _ => Statement::Expr(self.expression()),
+            },
+            None => {
+                return Err(ParseError {
+                    token: None,
+                    message: "Got end of tokens when expected a statement".into(),
+                })
+            }
+        };
+        self.consume(TokenType::Semicolon)?;
+        Ok(res)
     }
 
     // expression     → equality ;
@@ -249,10 +282,23 @@ where
                             _ => panic!("Expect ')' after expression"),
                         }
                     }
-                    _ => panic!("Expected '('"),
+                    _ => panic!("Expected '(', got {tok:?}"),
                 },
             },
             None => panic!("Got end of tokens when expected a primary"),
+        }
+    }
+
+    fn consume(&mut self, tt: TokenType) -> Result<(), ParseError> {
+        match self.toks.next() {
+            Some(t) if t.kind == tt => Ok(()),
+            other => {
+                let message = format!("Expected token type {tt:?}, got {other:?}");
+                Err(ParseError {
+                    token: other,
+                    message: message,
+                })
+            }
         }
     }
 }

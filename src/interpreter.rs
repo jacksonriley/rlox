@@ -1,12 +1,22 @@
-use crate::ast::{BinaryOp, Expr, Literal, UnaryOp};
+use crate::ast::{BinaryOp, Expr, Literal, Statement, UnaryOp};
 use thiserror::Error;
 
 pub(crate) struct Interpreter {}
 
 impl Interpreter {
-    pub fn interpret(&mut self, expr: Expr) -> Result<String, RuntimeError> {
-        let lit = self.evaluate(expr)?;
-        Ok(self.evaluate_literal(lit))
+    pub fn interpret(&mut self, statements: Vec<Statement>) -> Result<(), RuntimeError> {
+        for stmt in statements.into_iter() {
+            match stmt {
+                Statement::Print(expr) => {
+                    let lit = self.evaluate(expr)?;
+                    println!("{}", self.evaluate_literal(lit));
+                }
+                Statement::Expr(expr) => {
+                    self.evaluate(expr)?;
+                }
+            }
+        }
+        Ok(())
     }
 
     fn evaluate(&mut self, expr: Expr) -> Result<Literal, RuntimeError> {

@@ -50,8 +50,10 @@ fn run(s: &str) -> Result<(), LoxError> {
     }
     let tokens = tokens.into_iter().map(Result::unwrap);
     let parser = ast::Parser::new(tokens);
-    let parsed = parser.parse().map_err(|t| LoxError::ParseErrors(t.1))?;
-    let interpreted = interpreter::Interpreter {}.interpret(parsed)?;
-    println!("{}", interpreted);
+    let parsed = parser.parse().map_err(|t| {
+        println!("Parsed {:#?}", t.0);
+        LoxError::ParseErrors(t.1)
+    })?;
+    interpreter::Interpreter {}.interpret(parsed)?;
     Ok(())
 }
