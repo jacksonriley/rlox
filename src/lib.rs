@@ -24,18 +24,20 @@ pub fn run_file<P: AsRef<Path>>(file: P) -> Result<(), LoxError> {
 }
 
 pub fn run_prompt() -> Result<(), LoxError> {
-    let stdin = io::stdin();
-    loop {
-        print!("> ");
-        io::stdout().flush()?;
-        match stdin.lock().lines().next() {
-            Some(line) => match run(&line?) {
-                Ok(_) => {}
-                Err(e) => println!("{}", e),
-            },
-            None => break Ok(()),
-        };
+    use linefeed::{Interface, ReadResult};
+    let interface = Interface::new("rlox")?;
+    interface.set_prompt("rlox> ")?;
+    while let ReadResult::Input(line) = interface.read_line()? {
+        if !line.trim().is_empty() {
+            interface.add_history_unique(line.clone());
+        }
+
+        match run(&line) {
+            Ok(_) => {}
+            Err(e) => println!("{}", e),
+        }
     }
+    Ok(())
 }
 
 fn run(s: &str) -> Result<(), LoxError> {
